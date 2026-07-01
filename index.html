@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIOXZ - Bioinformatics Intelligence Platform</title>
+    <!-- Google Fonts (Inter & Space Grotesk) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        },
+                        slate: {
+                            950: '#0b0f19',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- React & Babel CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Custom animations and styling for molecular structures */
+        body {
+            background-color: #0b0f19;
+            color: #f1f5f9;
+        }
+        
+        .glow-blue {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+        }
+
+        .glow-green {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+
+        /* Pulsing core animation for AlphaFold structural widget */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .pulse-ring-outer {
+            animation: pulse-ring 2.5s infinite ease-in-out;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased selection:bg-brand-600 selection:text-white">
+
+    <div id="root"></div>
+
+    <!-- Main React App Script Component -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- Simulated Initial Seed Data ---
+        const DEFAULT_PROJECTS = [
+            {
+                id: 1,
+                name: "Human Epigenome Regulation (SaaS-01)",
+                description: "Analyzing chromatin configurations and CRISPR vectors across cancerous epigenetic cell targets."
+            },
+            {
+                id: 2,
+                name: "SARS-CoV-2 Spike Proteomics",
+                description: "Mapping neutralizing antibodies binding affinities to the viral spike protein RBD loci."
+            }
+        ];
+
+        const DEFAULT_RECORDS = [
+            {
+                id: 101,
+                projectId: 1,
+                type: "DNA",
+                sequenceName: "TP53 Segment Alpha",
+                sequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATC",
+                timestamp: Date.now() - 3600000 * 2, // 2 hours ago
+                results: {
+                    length: 36,
+                    gcContent: 50.0,
+                    molecularWeight: 11012.2,
+                    complement: "TACGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAG",
+                    protein: "MRSISISISISISISI"
+                }
+            },
+            {
+                id: 102,
+                projectId: 1,
+                type: "RNA",
+                sequenceName: "transcript_assay_01",
+                sequence: "AUGCGAUCGAUCGAUCGAUCGAUCGAUCGAUCGAUC",
+                timestamp: Date.now() - 3600000, // 1 hour ago
+                results: {
+                    secondaryStructurePairings: 4,
+                    regulationRatio: "UpDownScaled"
+                }
+            }
+        ];
+
+        const DEFAULT_PAPERS = [
+            {
+                id: 1,
+                title: "Therapeutic Targeting of Epigenetic Regulators in Human Pathways",
+                authors: "Dr. Sarah Jenkins, Dr. Alan Turing",
+                abstractText: "This seminal paper describes the computational screening of CRISPR-Cas9 base-editing guides against DNA methyltransferase loci. We analyze the targeted structural changes in primary cells, reporting highly reproducible methylation alignment rates across multiple lanes.",
+                fullText: "1. OVERVIEW AND STRUCTURAL PRINCIPLES\nWe engineered modern sgRNAs targeting the promoter regions of transcription factors...\n\n2. CRISPR VECTOR DESIGN\nOligonucleotides were designed with 20nt target sequences and synthesized commercially. The PAM site selected was standard NGG.\n\n3. SEQUENCING DETAILS\nFastQ files were mapped against hg38 genome using Bowtie2. Standard differential expression analyses show down-regulation of oncogenes.\n\n4. CONCLUSIONS\nCRISPR editing of these loci yields therapeutic potential with minimal off-target edits.",
+                pmid: "34509121",
+                journal: "Nature Biotechnology",
+                pubYear: "2024",
+                notes: "Primary guide design guidelines are documented in Section 2."
+            }
+        ];
+
+        const DEFAULT_NOTES = [
+            {
+                id: 1,
+                title: "sgRNA CRISPR Design Specifications",
+                content: "### Guide RNA Design Notes\n\n1. Target locus: DNMT1 promoter region\n2. Selected PAM: NGG (SpCas9)\n3. Sequence: `5'- CACCGGGCGGTGACGGAGCCGGAC -3'`\n4. Efficiency score prediction: 0.89 (via DeepCRISPR model)\n5. Off-target risk: minimal (0.012 mismatch coefficient across hg38)\n\nThese guides will be transfected into cell line MCF-7 next Tuesday. Check GC content (currently 68%) to ensure optimal hybridization kinetics."
+            }
+        ];
+
+        const DEFAULT_CHAT = [
+            {
+                role: "model",
+                content: "Welcome to the Bioinformatics AI Assistant. I am fully integrated with local research paper indexes and scientific databases (NCBI, UniProt, PubMed). How can I assist you with your molecular biology, sequence alignments, or CRISPR designs today?"
+            }
+        ];
+
+        const CODON_TABLE = {
+            "ATG": "M", "TGG": "W",
+            "TTT": "F", "TTC": "F",
+            "TTA": "L", "TTG": "L", "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L",
+            "ATT": "I", "ATC": "I", "ATA": "I",
+            "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V",
+            "TCT": "S", "TCC": "S", "TCA" : "S", "TCG": "S", "AGT": "S", "AGC": "S",
+            "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
+            "ACT": "T", "ACC": "T", "ACA": "T", "ACG": "T",
+            "GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A",
+            "TAT": "Y", "TAC": "Y",
+            "CAT": "H", "CAC": "H",
+            "CAA": "Q", "CAG": "Q",
+            "AAT": "N", "AAC": "N",
+            "AAG": "K", "AAA": "K",
+            "GAT": "D", "GAC": "D",
+            "GAA": "E", "GAG": "E",
+            "TGT": "C", "TGC": "C",
+            "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R", "AGA": "R", "AGG": "R",
+            "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+            "TAA": "*", "TAG": "*", "TGA": "*" // Stops
+        };
+
+        const HYDROPHOBICITY_MAP = {
+            'A': 1.8, 'R': -4.5, 'N': -3.5, 'D': -3.5, 'C': 2.5,
+            'Q': -3.5, 'E': -3.5, 'G': -0.4, 'H': -3.2, 'I': 4.5,
+            'L': 3.8, 'K': -3.9, 'M': 1.9, 'F': 2.8, 'P': -1.6,
+            'S': -0.8, 'T': -0.7, 'W': -0.9, 'Y': -1.3, 'V': 4.2
+        };
+
+        // Simulated search engines for high-quality Scientific query outputs
+        const PUBMED_RESOURCES = [
+            {
+                pmid: "34509121",
+                title: "Precision Epigenome Editing with CRISPR-Cas9 Base Editors",
+                authors: "Jenkins S, Turing A, Zezo E",
+                journal: "Nature Biotechnology",
+                pubYear: "2024",
+                abstractText: "We introduce an optimized base-editing architecture for human primary T-cells. This system drives locus-specific cytidine deamination over DNMT1 promoters with >90% precision, bypassing double-stranded DNA breaks and reducing off-target rates below analytical limits.",
+                fullText: "1. OVERVIEW\nChromatin structure is dynamically reshaped by locus-specific methylation. Here we present molecular configurations...\n\n2. DESIGN OF BASE EDITORS\nEngineered sgRNAs were matched with dCas9 fused to a high-fidelity deaminase domain. Guides are generated computationally via BIOXZ protocols."
+            },
+            {
+                pmid: "31849102",
+                title: "Somatic Mutation Landscapes in Epigenome Loci",
+                authors: "Watson J, Crick F, Al-Khwarizmi M",
+                journal: "Science",
+                pubYear: "2023",
+                abstractText: "This publication maps over 12,000 regulatory promoters across 40 cancer cell lineages. We confirm clustering of mutation hot-spots within GC-rich sequences, suggesting chromatin state serves as a physical barrier modulating replication-associated mutations.",
+                fullText: "1. GENOMIC SEQUENCE ASSAYS\nWe screened transcription factors bindings..."
+            },
+            {
+                pmid: "38920194",
+                title: "Deep Learning Methods for Protein Helix Foldings and Motifs",
+                authors: "Hassabis D, Jumper J",
+                journal: "Cell Genomics",
+                pubYear: "2025",
+                abstractText: "We describe deep convolutional predictions of amino-acid structural side-chains. We introduce GRAVY score spatial correlation filters, rendering secondary atomic ribbons with high-fidelity rotational confidence levels exceeding standard AlphaFold limits.",
+                fullText: "1. METHODS\nKyte-Doolittle index parameters were integrated dynamically with 3D projection vectors..."
+            }
+        ];
+
+        const UNIPROT_RESOURCES = [
+            {
+                primaryAccession: "P01308",
+                uniProtkbId: "INS_HUMAN",
+                proteinName: "Insulin (Human)",
+                organism: "Homo sapiens (Human)",
+                sequence: "MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN",
+                molWeight: 11981
+            },
+            {
+                primaryAccession: "P04637",
+                uniProtkbId: "P53_HUMAN",
+                proteinName: "Cellular tumor antigen p53",
+                organism: "Homo sapiens (Human)",
+                sequence: "MEEPQSDPSVEPPLSQETFSDLWKLLPENNVLSPLPSQAMDDLMLSPDDIEQWFTEDPGPDEAPRMPEAAPPVAPAPAAPTPAAPAPAPSWPLSSSVPSQKTYQGNYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQIRGRERFEMFRELNEALELKDAQAGKEPGGSRAHSSHLKSKKGQSTSRHKKLMFKTEGPDSD",
+                molWeight: 43653
+            },
+            {
+                primaryAccession: "P02243",
+                uniProtkbId: "MYC_HUMAN",
+                proteinName: "Myc proto-oncogene protein",
+                organism: "Homo sapiens (Human)",
+                sequence: "MPLNVSFTNRNYDLDYDSVQPYFYCDEEENFYQQQQQSELQPPAPSEDIWKKFELLPTPPLSPSRRSGLCSPSYVAVTPFSLRGDNDGGGGSFSTADQLEMVTELLGGDMVNQSFICDPDDETFIKNIIIQDCMWSGFSAAAKLVSEKLASYQAARKDSGSPNPARGHSVCSTSSLYLQDLTAAASECIDPSVVFPYPLNDSSSPKSCASQDSSAFSPSSDSLLSSTESSPQGSPEPLVLHEETPPTTSSDSEEEQEDEEEIDVVSVEKRQAPGKRSESGSPSAGGHSKPPHSPLVLKRCHVSTHQHNYAAPPSTRKDYPAAKRVKLDSVRVLRQISNNRKCTSPRSSDTEENVKRRTHNVLERQRRNELKRSFFALRDQIPELENNEKAPKVVILKKATAYILSVQAEEQKLISEEDLLRKRREQLKHKLEQLRNSCA",
+                molWeight: 48804
+            }
+        ];
+
+        // --- App Component Container ---
+        function App() {
+            const [currentRoute, setCurrentRoute] = useState("dashboard");
+            const [projects, setProjects] = useState(() => {
+                const saved = localStorage.getItem("bioxz_projects");
+                return saved ? JSON.parse(saved) : DEFAULT_PROJECTS;
+            });
+            const [records, setRecords] = useState(() => {
+                const saved = localStorage.getItem("bioxz_records");
+                return saved ? JSON.parse(saved) : DEFAULT_RECORDS;
+            });
+            const [papers, setPapers] = useState(() => {
+                const saved = localStorage.getItem("bioxz_papers");
+                return saved ? JSON.parse(saved) : DEFAULT_PAPERS;
+            });
+            const [notes, setNotes] = useState(() => {
+                const saved = localStorage.getItem("bioxz_notes");
+                return saved ? JSON.parse(saved) : DEFAULT_NOTES;
+            });
+            const [chatMessages, setChatMessages] = useState(() => {
+                const saved = localStorage.getItem("bioxz_chat");
+                return saved ? JSON.parse(saved) : DEFAULT_CHAT;
+            });
+
+            // Active project state
+            const [selectedProject, setSelectedProject] = useState(() => {
+                return projects[0] || null;
+            });
+
+            // Save state hooks to localStorage
+            useEffect(() => {
+                localStorage.setItem("bioxz_projects", JSON.stringify(projects));
+            }, [projects]);
+            useEffect(() => {
+                localStorage.setItem("bioxz_records", JSON.stringify(records));
+            }, [records]);
+            useEffect(() => {
+                localStorage.setItem("bioxz_papers", JSON.stringify(papers));
+            }, [papers]);
+            useEffect(() => {
+                localStorage.setItem("bioxz_notes", JSON.stringify(notes));
+            }, [notes]);
+            useEffect(() => {
+                localStorage.setItem("bioxz_chat", JSON.stringify(chatMessages));
+            }, [chatMessages]);
+
+            // --- Screen States ---
+            // DNA Input State
+            const [dnaInput, setDnaInput] = useState("ATGCGATCGATCGATCGATCGATCGATCGATCGATC");
+            const [dnaSequenceName, setDnaSequenceName] = useState("TP53 Segment Alpha");
+
+            // RNA Input State
+            const [rnaInput, setRnaInput] = useState("AUGCGAUCGAUCGAUCGAUCGAUCGAUCGAUCGAUC");
+
+            // Protein Input State
+            const [proteinInput, setProteinInput] = useState("MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTR");
+
+            // Database Search States
+            const [dbQuery, setDbQuery] = useState("CRISPR Cas9 vectors");
+            const [isSearchingDb, setIsSearchingDb] = useState(false);
+            const [pubMedResults, setPubMedResults] = useState([]);
+            const [uniProtResults, setUniProtResults] = useState([]);
+
+            // AI chat states
+            const [chatInput, setChatInput] = useState("");
+            const [isAiLoading, setIsAiLoading] = useState(false);
+
+            // Notebook States
+            const [noteTitle, setNoteTitle] = useState("");
+            const [noteContent, setNoteContent] = useState("");
+            const [editingNoteId, setEditingNoteId] = useState(null);
+
+            // Paper Details Modal/Panel States
+            const [selectedPaper, setSelectedPaper] = useState(null);
+
+            // Create project dialog modal
+            const [showCreateProjModal, setShowCreateProjModal] = useState(false);
+            const [newProjName, setNewProjName] = useState("");
+            const [newProjDesc, setNewProjDesc] = useState("");
+
+            // Active Workspace selection
+            const handleCreateProject = () => {
+                if (newProjName.trim() === "") return;
+                const newProj = {
+                    id: Date.now(),
+                    name: newProjName,
+                    description: newProjDesc || "No description provided."
+                };
+                setProjects([...projects, newProj]);
+                setSelectedProject(newProj);
+                setNewProjName("");
+                setNewProjDesc("");
+                setShowCreateProjModal(false);
+            };
+
+            const handleDeleteProject = (id) => {
+                const filtered = projects.filter(p => p.id !== id);
+                setProjects(filtered);
+                if (selectedProject?.id === id) {
+                    setSelectedProject(filtered[0] || null);
+                }
+            };
+
+            // Database Heuristic Queries
+            const handleDatabaseSearch = () => {
+                if (dbQuery.trim() === "") return;
+                setIsSearchingDb(true);
+                setTimeout(() => {
+                    const q = dbQuery.toLowerCase();
+                    // Filter mock papers
+                    const foundPapers = PUBMED_RESOURCES.filter(p => 
+                        p.title.toLowerCase().includes(q) || 
+                        p.abstractText.toLowerCase().includes(q)
+                    );
+                    // Filter mock proteins
+                    const foundProteins = UNIPROT_RESOURCES.filter(p => 
+                        p.uniProtkbId.toLowerCase().includes(q) || 
+                        p.proteinName.toLowerCase().includes(q) ||
+                        p.organism.toLowerCase().includes(q)
+                    );
+
+                    setPubMedResults(foundPapers.length > 0 ? foundPapers : [PUBMED_RESOURCES[0]]);
+                    setUniProtResults(foundProteins.length > 0 ? foundProteins : [UNIPROT_RESOURCES[0]]);
+                    setIsSearchingDb(false);
+                }, 1000);
+            };
+
+            // AI chat handler
+            const handleSendChatMessage = (textToSend = null) => {
+                const text = textToSend || chatInput;
+                if (!text || text.trim() === "") return;
+
+                const newUserMessage = { role: "user", content: text };
+                const updatedMessages = [...chatMessages, newUserMessage];
+                setChatMessages(updatedMessages);
+                if (!textToSend) setChatInput("");
+                setIsAiLoading(true);
+
+                // Run Heuristic Simulation of scientific engine response
+                setTimeout(() => {
+                    const q = text.toLowerCase();
+                    let responseText = "";
+
+                    if (q.includes("crispr") || q.includes("sgrna") || q.includes("dnmt1")) {
+                        responseText = `### CRISPR sgRNA Design Report for Human DNMT1 (DNA Methyltransferase 1)
+
+I have performed a high-efficiency sgRNA scan across the human **DNMT1** coding sequences (Targeting Exon 2 / Exon 3 for maximum knockout efficiency).
+
+#### Suggested sgRNA Candidates:
+
+1. **sgRNA-DNMT1-01**
+   - **Target Sequence (5' -> 3'):** \`GTCGGGCCTTCGTGGTGGCG\`
+   - **PAM:** \`CGG\`
+   - **Position:** Chr19: 10,134,122
+   - **GC Content:** 70%
+   - **Efficiency Score (Doench-Root):** 0.84
+   - **Off-Target Count:** 0 (High Specificity)
+
+2. **sgRNA-DNMT1-02**
+   - **Target Sequence (5' -> 3'):** \`CACCGGCCTCATCGTCCGTG\`
+   - **PAM:** \`TGG\`
+   - **Position:** Chr19: 10,134,250
+   - **GC Content:** 65%
+   - **Efficiency Score:** 0.79
+   - **Off-Target Count:** 1 (Low-risk intron match)
+
+#### Recommendations:
+- Use **sgRNA-DNMT1-01** for transient transfection or lentiviral packaging.
+- Confirm knockout via Western Blot or Sanger Sequencing 48 hours post-transfection.`;
+                    } else if (q.includes("dna") || q.includes("rna") || q.includes("sequence") || q.includes("structure") || q.includes("folding")) {
+                        responseText = `### Molecular Structure Analysis
+
+Analyzing the requested genomic structural characteristics:
+
+1. **Secondary Folding Energy:** ΔG = -14.2 kcal/mol (Highly stable hairpin loop predicted).
+2. **GC Content Metric:** ~54.2% (Perfect for standard PCR annealing protocols).
+3. **Melting Temperature (Tm):** 62.4°C (Optimal primer pairing).
+
+#### Predicted Watson-Crick Base Pairing:
+- Input Sequence recognized and parsed successfully.
+- Complementary strand mapped with high fidelity.
+- Transcription translation model predicts an open reading frame (ORF) on Reading Frame +1.`;
+                    } else if (q.includes("مرحبا") || q.includes("اهلاً") || q.includes("اهلا") || q.includes("كيف") || q.includes("مين") || q.includes("انت") || q.includes("hello") || q.includes("hi") || q.includes("zezo")) {
+                        responseText = `### منصة BIOXZ للتحليل الجيني والمولكولي المتقدمة
+
+أهلاً بك في منصة **BIOXZ**، النظام الرسمي للذكاء الاصطناعي والمعلوماتية الحيوية المصمم بواسطة **ENG ZEZO**.
+
+أنا جاهز لمساعدتك في العمليات البحثية التالية:
+- **تصميم ومسح CRISPR sgRNA:** تحليل دقيق لمواقع PAM ومعدلات الكفاءة والـ Knockout.
+- **تحليل تسلسل الحمض النووي (DNA/RNA):** حساب نسب الـ GC Content وتوقع الطفرات والـ Transcription.
+- **توقع طي البروتين (Protein Folding):** فحص الهياكل ثلاثية الأبعاد باستخدام نماذج الذكاء الاصطناعي AlphaFold.
+- **البحث في قواعد البيانات العلمية:** سحب وتحليل الأوراق من PubMed وNCBI وUniProt.
+
+*يرجى كتابة استفسارك العلمي أو اختيار أحد القوالب المقترحة للبدء الفوري.*`;
+                    } else {
+                        responseText = `### BIOXZ Intelligent Processing Output
+
+Processed request successfully in active project context: **${selectedProject?.name}**.
+
+- **Analytic Focus:** Advanced Bioinformatics, Sequence Alignment, and Molecular Modeling.
+- **Genomic Target Mapping:** Active.
+- **Structural Database Sync:** PubMed & UniProt repositories synchronized.
+
+Please specify your biological research sequence or parameter query for an instant detailed scientific report.`;
+                    }
+
+                    setChatMessages(prev => [...prev, { role: "model", content: responseText }]);
+                    setIsAiLoading(false);
+                }, 1200);
+            };
+
+            // Save record helper
+            const handleSaveRecord = (type, sequenceName, sequence, results) => {
+                const newRecord = {
+                    id: Date.now(),
+                    projectId: selectedProject?.id || 1,
+                    type,
+                    sequenceName,
+                    sequence,
+                    timestamp: Date.now(),
+                    results
+                };
+                setRecords([newRecord, ...records]);
+                alert(`Assay Record "${sequenceName}" successfully saved to Workspace.`);
+            };
+
+            // Notebook handlers
+            const handleSaveNote = () => {
+                if (noteTitle.trim() === "") return;
+                if (editingNoteId) {
+                    setNotes(notes.map(n => n.id === editingNoteId ? { ...n, title: noteTitle, content: noteContent } : n));
+                    setEditingNoteId(null);
+                } else {
+                    const newNote = {
+                        id: Date.now(),
+                        title: noteTitle,
+                        content: noteContent
+                    };
+                    setNotes([...notes, newNote]);
+                }
+                setNoteTitle("");
+                setNoteContent("");
+            };
+
+            const handleEditNote = (note) => {
+                setEditingNoteId(note.id);
+                setNoteTitle(note.title);
+                setNoteContent(note.content);
+            };
+
+            const handleDeleteNote = (id) => {
+                setNotes(notes.filter(n => n.id !== id));
+                if (editingNoteId === id) {
+                    setEditingNoteId(null);
+                    setNoteTitle("");
+                    setNoteContent("");
+                }
+            };
+
+            // Sidebar items list
+            const NAV_ITEMS = [
+                { id: "dashboard", label: "Dashboard", emoji: "🏠" },
+                { id: "chat", label: "AI Assistant", emoji: "🤖" },
+                { id: "dna", label: "DNA Analysis", emoji: "🧬" },
+                { id: "rna", label: "RNA Secondary", emoji: "🧪" },
+                { id: "protein", label: "Protein Folding", emoji: "🔮" },
+                { id: "databases", label: "Sci DB Search", emoji: "🔎" },
+                { id: "research", label: "Indexed Papers", emoji: "📚" },
+                { id: "notebook", label: "Notebook Log", emoji: "📝" }
+            ];
+
+            return (
+                <div class="flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100 font-sans">
+                    
+                    {/* --- Sidebar Desktop Navigation --- */}
+                    <aside class="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-6 flex-shrink-0 justify-between">
+                        <div class="flex flex-col gap-6">
+                            {/* Logo */}
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-lg shadow-lg shadow-brand-600/30">
+                                    🧬
+                                </div>
+                                <div>
+                                    <h1 class="font-display font-bold text-lg leading-tight tracking-wider text-white">BIOXZ</h1>
+                                    <p class="text-[9px] text-slate-400 font-bold tracking-widest uppercase">INTELLIGENCE PLATFORM</p>
+                                </div>
+                            </div>
+
+                            <hr class="border-slate-800" />
+
+                            {/* Menu */}
+                            <nav class="flex flex-col gap-1">
+                                {NAV_ITEMS.map(item => {
+                                    const active = currentRoute === item.id;
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => setCurrentRoute(item.id)}
+                                            class={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                                                active 
+                                                ? 'bg-brand-600/10 text-brand-500 border border-brand-600/20 font-semibold' 
+                                                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
+                                            }`}
+                                        >
+                                            <span class="text-base">{item.emoji}</span>
+                                            {item.label}
+                                        </button>
+                                    );
+                                })}
+                            </nav>
+                        </div>
+
+                        {/* ENG ZEZO Dynamic Copyright Badge */}
+                        <div class="mt-8 pt-4 border-t border-slate-800 text-center flex flex-col gap-1">
+                            <span class="text-[10px] text-slate-500 font-bold tracking-widest font-mono">© 2026 ENG ZEZO</span>
+                            <span class="text-[9px] text-slate-400">BIOXZ Platform v2.4.1</span>
+                        </div>
+                    </aside>
+
+                    {/* --- Mobile Header --- */}
+                    <header class="md:hidden flex items-center justify-between px-5 py-4 bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">🧬</span>
+                            <h1 class="font-display font-bold text-lg tracking-wide text-white">BIOXZ</h1>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="text-xs font-mono font-bold text-slate-400">ENG ZEZO</span>
+                        </div>
+                    </header>
+
+                    {/* --- Main Content Panel Container --- */}
+                    <main class="flex-1 flex flex-col overflow-y-auto max-h-[calc(100vh-60px)] md:max-h-screen p-4 md:p-8">
+                        
+                        {/* Selected Route Render Switch */}
+                        {currentRoute === "dashboard" && (
+                            <DashboardScreen 
+                                selectedProject={selectedProject} 
+                                projectsCount={projects.length}
+                                records={records}
+                                onNavigate={setCurrentRoute}
+                                onCreateClick={() => setShowCreateProjModal(true)}
+                                projects={projects}
+                                onSelectProject={setSelectedProject}
+                                onDeleteProject={handleDeleteProject}
+                            />
+                        )}
+
+                        {currentRoute === "chat" && (
+                            <ChatScreen 
+                                messages={chatMessages} 
+                                isLoading={isAiLoading} 
+                                onSendMessage={handleSendChatMessage}
+                                onClearChat={() => setChatMessages([{ role: "model", content: "Chat cleared. Ask me anything!" }])}
+                                selectedProject={selectedProject}
+                                dnaInput={dnaInput}
+                            />
+                        )}
+
+                        {currentRoute === "dna" && (
+                            <DnaScreen 
+                                dnaInput={dnaInput}
+                                setDnaInput={setDnaInput}
+                                dnaSequenceName={dnaSequenceName}
+                                setDnaSequenceName={setDnaSequenceName}
+                                onSaveRecord={handleSaveRecord}
+                            />
+                        )}
+
+                        {currentRoute === "rna" && (
+                            <RnaScreen 
+                                rnaInput={rnaInput}
+                                setRnaInput={setRnaInput}
+                                onSaveRecord={handleSaveRecord}
+                            />
+                        )}
+
+                        {currentRoute === "protein" && (
+                            <ProteinScreen 
+                                proteinInput={proteinInput}
+                                setProteinInput={setProteinInput}
+                                onSaveRecord={handleSaveRecord}
+                            />
+                        )}
+
+                        {currentRoute === "databases" && (
+                            <DatabaseScreen 
+                                dbQuery={dbQuery}
+                                setDbQuery={setDbQuery}
+                                onSearch={handleDatabaseSearch}
+                                isLoading={isSearchingDb}
+                                pubMedResults={pubMedResults}
+                                uniProtResults={uniProtResults}
+                                onImportPaper={(paper) => {
+                                    if (!papers.find(p => p.pmid === paper.pmid)) {
+                                        setPapers([...papers, paper]);
+                                        alert("Research Paper successfully imported into active library.");
+                                    } else {
+                                        alert("Paper already in workspace.");
+                                    }
+                                }}
+                                onLoadProtein={(seq) => {
+                                    setProteinInput(seq);
+                                    setCurrentRoute("protein");
+                                }}
+                                onLoadDna={(seq) => {
+                                    setDnaInput(seq);
+                                    setCurrentRoute("dna");
+                                }}
+                            />
+                        )}
+
+                        {currentRoute === "research" && (
+                            <ResearchScreen 
+                                papers={papers}
+                                selectedPaper={selectedPaper}
+                                onSelectPaper={setSelectedPaper}
+                                onDeletePaper={(id) => setPapers(papers.filter(p => p.id !== id))}
+                            />
+                        )}
+
+                        {currentRoute === "notebook" && (
+                            <NotebookScreen 
+                                notes={notes}
+                                noteTitle={noteTitle}
+                                setNoteTitle={setNoteTitle}
+                                noteContent={noteContent}
+                                setNoteContent={setNoteContent}
+                                onSave={handleSaveNote}
+                                onEdit={handleEditNote}
+                                onDelete={handleDeleteNote}
+                                editingId={editingNoteId}
+                            />
+                        )}
+
+                    </main>
+
+                    {/* --- Mobile Footer Navigation Bar --- */}
+                    <footer class="md:hidden grid grid-cols-4 bg-slate-900 border-t border-slate-800 p-2 text-center flex-shrink-0 sticky bottom-0 z-50">
+                        <button onClick={() => setCurrentRoute("dashboard")} class={`flex flex-col items-center gap-1 ${currentRoute === 'dashboard' ? 'text-brand-500 font-bold' : 'text-slate-400'}`}>
+                            <span class="text-lg">🏠</span>
+                            <span class="text-[9px]">Home</span>
+                        </button>
+                        <button onClick={() => setCurrentRoute("chat")} class={`flex flex-col items-center gap-1 ${currentRoute === 'chat' ? 'text-brand-500 font-bold' : 'text-slate-400'}`}>
+                            <span class="text-lg">🤖</span>
+                            <span class="text-[9px]">AI Ask</span>
+                        </button>
+                        <button onClick={() => setCurrentRoute("dna")} class={`flex flex-col items-center gap-1 ${currentRoute === 'dna' ? 'text-brand-500 font-bold' : 'text-slate-400'}`}>
+                            <span class="text-lg">🧬</span>
+                            <span class="text-[9px]">DNA</span>
+                        </button>
+                        <button onClick={() => {
+                            // Open options menu on mobile or just go to Databases tab
+                            setCurrentRoute("databases");
+                        }} class={`flex flex-col items-center gap-1 ${currentRoute === 'databases' ? 'text-brand-500 font-bold' : 'text-slate-400'}`}>
+                            <span class="text-lg">🔎</span>
+                            <span class="text-[9px]">Databases</span>
+                        </button>
+                    </footer>
+
+                    {/* --- Workspace Create Dialog Modal --- */}
+                    {showCreateProjModal && (
+                        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 flex flex-col gap-4">
+                                <h2 class="font-display font-bold text-lg text-white">Create Computational Workspace</h2>
+                                <div class="flex flex-col gap-3">
+                                    <label class="flex flex-col gap-1 text-xs text-slate-400">
+                                        Project / Locus Identifier
+                                        <input 
+                                            type="text" 
+                                            value={newProjName}
+                                            onChange={(e) => setNewProjName(e.target.value)}
+                                            placeholder="e.g. Human Epigenome (SaaS-02)"
+                                            class="bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-100 outline-none focus:border-brand-600 text-sm"
+                                        />
+                                    </label>
+                                    <label class="flex flex-col gap-1 text-xs text-slate-400">
+                                        Target Research Specifications
+                                        <textarea 
+                                            value={newProjDesc}
+                                            onChange={(e) => setNewProjDesc(e.target.value)}
+                                            placeholder="A description of DNA methylation or guide parameters..."
+                                            class="bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-100 outline-none focus:border-brand-600 text-sm h-24 resize-none"
+                                        />
+                                    </label>
+                                </div>
+                                <div class="flex justify-end gap-2 mt-4 text-sm font-semibold">
+                                    <button 
+                                        onClick={() => setShowCreateProjModal(false)}
+                                        class="px-4 py-2 text-slate-400 hover:text-slate-100 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={handleCreateProject}
+                                        class="bg-brand-600 text-white rounded px-4 py-2 hover:bg-brand-700 transition-all"
+                                    >
+                                        Create Workspace
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            );
+        }
+
+        // --- SCREEN COMPONENT 1: DASHBOARD ---
+        function DashboardScreen({ 
+            selectedProject, 
+            projectsCount, 
+            records, 
+            onNavigate, 
+            onCreateClick, 
+            projects, 
+            onSelectProject, 
+            onDeleteProject 
+        }) {
+            const [pulseScale, setPulseScale] = useState(1);
+            
+            // Pulse simulator for AlphaFold predictor
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    setPulseScale(s => s === 1 ? 1.15 : 1);
+                }, 1200);
+                return () => clearInterval(timer);
+            }, []);
+
+            return (
+                <div class="flex flex-col gap-6 animate-fade-in">
+                    
+                    {/* Header bar */}
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold font-display text-white">Bioinformatics Workspace</h2>
+                            <p class="text-sm text-slate-400">Enterprise telemetry and computational DNA/RNA assays.</p>
+                        </div>
+
+                        {/* Status elements */}
+                        <div class="flex items-center gap-3">
+                            <div class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                                <span class="text-xs font-mono font-bold text-slate-300">Processing Node: ONLINE</span>
+                            </div>
+                            <div class="bg-brand-600/10 border border-brand-500/20 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                                <span class="text-sm">🤖</span>
+                                <span class="text-xs font-bold text-brand-500">BIOXZ AI</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bento Grid */}
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        {/* Bento Item 1: Active Workspace Locus */}
+                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-brand-600/5 rounded-full blur-2xl"></div>
+                            
+                            <div>
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <p class="text-[10px] text-brand-500 font-bold uppercase tracking-widest">Active Research Locus</p>
+                                        <h3 class="text-lg font-bold text-white font-display mt-1">{selectedProject?.name || "No active project"}</h3>
+                                    </div>
+                                    <span class="text-xs font-mono font-bold px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-400 rounded">
+                                        v2.4.1
+                                    </span>
+                                </div>
+                                <p class="text-sm text-slate-400 mt-3 leading-relaxed">
+                                    {selectedProject?.description || "Select or configure an isolated molecular workspace to record transcription runs, CRISPR guides, and folded 3D residues."}
+                                </p>
+                            </div>
+
+                            <div class="mt-6">
+                                <div class="flex justify-between items-center mb-2 text-xs text-slate-400">
+                                    <span>Workspace Node Efficiency</span>
+                                    <span class="font-bold text-slate-200">82%</span>
+                                </div>
+                                <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                                    <div class="bg-brand-600 h-full rounded-full transition-all duration-1000" style={{ width: '82%' }}></div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-800/80">
+                                <div class="text-xs text-slate-400">
+                                    Total computational slots: <strong class="text-slate-200">{projectsCount}</strong>
+                                </div>
+                                <button 
+                                    onClick={onCreateClick}
+                                    class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-4 py-2 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                                >
+                                    <span>➕</span> New Workspace
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Bento Item 2: AlphaFold Predictor & Hydrophobicity */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden">
+                            <div>
+                                <p class="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Structural Predictor</p>
+                                <h3 class="text-base font-bold text-white mt-1">AlphaFold AI Node</h3>
+                            </div>
+
+                            {/* Rotating pulsing visual atom */}
+                            <div class="flex justify-center items-center py-4">
+                                <div class="relative w-24 h-24 flex items-center justify-center">
+                                    <div 
+                                        className="absolute inset-0 border-2 border-brand-500/20 rounded-full pulse-ring-outer"
+                                        style={{ transform: `scale(${pulseScale})` }}
+                                    ></div>
+                                    <div class="absolute w-16 h-16 border-2 border-brand-500/40 rounded-full animate-spin duration-[4s]"></div>
+                                    <div class="absolute w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-xs shadow-lg shadow-brand-600/50">
+                                        🧬
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-center">
+                                <p class="text-xs font-semibold text-slate-300">Residue Alpha Foldings</p>
+                                <p class="text-[10px] text-slate-500 mt-1">Dynamic prediction on FASTA loads</p>
+                            </div>
+                        </div>
+
+                        {/* Bento Item 3: GC Content Widget */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Sequence Metric</p>
+                            <div class="my-3">
+                                <div class="flex items-baseline gap-1 text-slate-100">
+                                    <span class="text-3xl font-black font-display tracking-tight">54.2</span>
+                                    <span class="text-base text-slate-500 font-bold">%</span>
+                                </div>
+                                <p class="text-xs font-semibold text-slate-300 mt-1">Standard GC Content</p>
+                            </div>
+                            <span class="text-[10px] text-emerald-500 font-medium bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2 py-0.5 w-max">
+                                Optimal for PCR assays
+                            </span>
+                        </div>
+
+                        {/* Bento Item 4: AI Assistant Quick Entry */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between lg:col-span-1 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-brand-600/5 rounded-full blur-2xl"></div>
+                            <div>
+                                <span class="text-lg">🤖</span>
+                                <h4 class="text-sm font-bold text-white mt-2">Molecular Assistant</h4>
+                                <p class="text-xs text-slate-400 mt-1.5 leading-relaxed">Query genomes, guides, PubMed abstracts directly.</p>
+                            </div>
+                            <button 
+                                onClick={() => onNavigate("chat")}
+                                class="mt-4 w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-brand-500 font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all"
+                            >
+                                Ask Research AI <span class="text-sm">→</span>
+                            </button>
+                        </div>
+
+                        {/* Bento Item 5: Quick Tool Shortcuts */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Molecular Workspaces</p>
+                            
+                            <div class="grid grid-cols-2 gap-2 my-2">
+                                <button onClick={() => onNavigate("dna")} class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 text-left transition-all">
+                                    <span class="text-sm">🧬</span>
+                                    <p class="text-xs font-bold text-white mt-1">DNA</p>
+                                    <p class="text-[9px] text-slate-500">Transcribe / ORF</p>
+                                </button>
+                                <button onClick={() => onNavigate("rna")} class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 text-left transition-all">
+                                    <span class="text-sm">🧪</span>
+                                    <p class="text-xs font-bold text-white mt-1">RNA Secondary</p>
+                                    <p class="text-[9px] text-slate-500">Stems / Heatmap</p>
+                                </button>
+                                <button onClick={() => onNavigate("protein")} class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 text-left transition-all">
+                                    <span class="text-sm">🔮</span>
+                                    <p class="text-xs font-bold text-white mt-1">Protein</p>
+                                    <p class="text-[9px] text-slate-500">Hydrophobicity</p>
+                                </button>
+                                <button onClick={() => onNavigate("databases")} class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 text-left transition-all">
+                                    <span class="text-sm">🔎</span>
+                                    <p class="text-xs font-bold text-white mt-1">Sci DB</p>
+                                    <p class="text-[9px] text-slate-500">PubMed / NCBI</p>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* Workspaces Index Manager */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h4 class="text-sm font-bold text-white font-display uppercase tracking-wider mb-4">Workspace Catalogs ({projects.length})</h4>
+                        <div class="flex flex-col gap-3">
+                            {projects.map(p => {
+                                const isSelected = selectedProject?.id === p.id;
+                                return (
+                                    <div 
+                                        key={p.id}
+                                        onClick={() => onSelectProject(p)}
+                                        class={`flex justify-between items-center p-3 rounded-lg border cursor-pointer transition-all ${
+                                            isSelected 
+                                            ? 'bg-brand-600/5 border-brand-600/30 glow-blue' 
+                                            : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700'
+                                        }`}
+                                    >
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-lg">📁</span>
+                                            <div>
+                                                <h5 class="text-xs font-bold text-white">{p.name}</h5>
+                                                <p class="text-[10px] text-slate-500 truncate max-w-sm mt-0.5">{p.description}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            {isSelected && (
+                                                <span class="text-[10px] bg-brand-600 text-white rounded-md px-2 py-0.5 font-bold uppercase tracking-wider">
+                                                    Active
+                                                </span>
+                                            )}
+                                            {projects.length > 1 && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDeleteProject(p.id);
+                                                    }}
+                                                    class="text-slate-500 hover:text-rose-500 text-xs p-1"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Saved Assay Records Section */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-white font-display uppercase tracking-wider">Assay Telemetry Registers</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Historical sequence and structural records mapped.</p>
+                            </div>
+                            {/* Decorative avatars */}
+                            <div class="flex -space-x-2">
+                                <div class="w-6 h-6 rounded-full bg-indigo-600 border border-slate-900 text-[10px] font-bold flex items-center justify-center">A1</div>
+                                <div class="w-6 h-6 rounded-full bg-emerald-600 border border-slate-900 text-[10px] font-bold flex items-center justify-center">E2</div>
+                                <div class="w-6 h-6 rounded-full bg-slate-700 border border-slate-900 text-[9px] font-bold flex items-center justify-center text-slate-300">+3</div>
+                            </div>
+                        </div>
+
+                        {records.length === 0 ? (
+                            <div class="bg-slate-950 border border-slate-800 rounded-xl p-8 text-center text-slate-500 text-xs">
+                                No telemetry assays recorded in database. Select DNA/RNA sequence tabs to compute.
+                            </div>
+                        ) : (
+                            <div class="flex flex-col gap-2">
+                                {records.map(record => {
+                                    const dateStr = new Date(record.timestamp).toLocaleString();
+                                    return (
+                                        <div key={record.id} class="flex items-center justify-between p-3.5 bg-slate-950/40 border border-slate-800 rounded-xl">
+                                            <div class="flex items-center gap-3">
+                                                <div class={`w-9 h-9 rounded-lg flex items-center justify-center text-lg ${
+                                                    record.type === 'DNA' ? 'bg-blue-500/10 text-blue-500' :
+                                                    record.type === 'RNA' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-purple-500/10 text-purple-500'
+                                                }`}>
+                                                    {record.type === 'DNA' ? '🧬' : record.type === 'RNA' ? '🧪' : '🔮'}
+                                                </div>
+                                                <div>
+                                                    <h5 class="text-xs font-bold text-white">{record.sequenceName}</h5>
+                                                    <p class="text-[10px] font-mono text-slate-500 truncate max-w-[200px] md:max-w-md mt-0.5">
+                                                        Seq: {record.sequence}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div class="text-right">
+                                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
+                                                    {record.type}
+                                                </span>
+                                                <p class="text-[9px] text-slate-500 mt-1 font-mono">{dateStr}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Animated footer branding */}
+                    <div class="text-center py-4 flex flex-col gap-1">
+                        <span class="text-xs font-mono font-bold text-slate-500 tracking-wider">BIOXZ BIOPLATFORM</span>
+                        <span class="text-[10px] text-slate-400">Designed and maintained by Eng Zezo • © 2026</span>
+                    </div>
+
+                </div>
+            );
+        }
+
+        // --- SCREEN COMPONENT 2: AI ASSISTANT CHAT ---
+        function ChatScreen({ messages, isLoading, onSendMessage, onClearChat, selectedProject, dnaInput }) {
+            const [input, setInput] = useState("");
+            const bottomRef = useRef(null);
+
+            useEffect(() => {
+                bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages, isLoading]);
+
+            const submit = () => {
+                if (input.trim() === "") return;
+                onSendMessage(input);
+                setInput("");
+            };
+
+            const templates = [
+                "Design CRISPR guide for human DNMT1 promoter region",
+                "Explain Kyte-Doolittle GRAVY scale parameters",
+                "Calculate standard GC content for ATGCGATCGATCGATC",
+                "Predict secondary structures base pairing stems"
+            ];
+
+            return (
+                <div class="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl h-[calc(100vh-120px)] md:h-[calc(100vh-100px)] overflow-hidden">
+                    
+                    {/* Header */}
+                    <div class="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-slate-950/40">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">🤖</span>
+                            <div>
+                                <h3 class="text-sm font-bold text-white font-display">BIOXZ AI Research Assistant</h3>
+                                <p class="text-[10px] text-slate-400">Context active: {selectedProject?.name}</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={onClearChat}
+                            class="text-xs font-semibold text-rose-500 hover:text-rose-400 px-3 py-1 bg-rose-500/10 border border-rose-500/20 rounded-md transition-all"
+                        >
+                            Clear Thread
+                        </button>
+                    </div>
+
+                    {/* Messages Body */}
+                    <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+                        {messages.map((m, idx) => {
+                            const isUser = m.role === "user";
+                            return (
+                                <div key={idx} class={`flex flex-col gap-1 max-w-[85%] ${isUser ? 'self-end items-end' : 'self-start items-start'}`}>
+                                    <span class="text-[9px] font-bold text-slate-500 font-mono tracking-wider uppercase">
+                                        {isUser ? 'User Investigator' : 'BIOXZ Intelligence Locus'}
+                                    </span>
+                                    <div class={`p-4 rounded-2xl text-xs md:text-sm leading-relaxed whitespace-pre-wrap shadow-sm border ${
+                                        isUser 
+                                        ? 'bg-brand-600 text-white border-brand-700 rounded-tr-none' 
+                                        : 'bg-slate-950 border-slate-800 text-slate-200 rounded-tl-none'
+                                    }`}>
+                                        {m.content}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {isLoading && (
+                            <div class="self-start flex flex-col gap-1 max-w-[80%]">
+                                <span class="text-[9px] font-bold text-slate-500 font-mono">BIOXZ Intelligence Locus</span>
+                                <div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce"></span>
+                                    <span class="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                    <span class="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={bottomRef}></div>
+                    </div>
+
+                    {/* Prompt suggestions template list */}
+                    <div class="px-6 py-2 border-t border-slate-800 bg-slate-950/20 flex gap-2 overflow-x-auto whitespace-nowrap">
+                        {templates.map((tpl, i) => (
+                            <button 
+                                key={i}
+                                onClick={() => onSendMessage(tpl)}
+                                class="text-[10px] text-slate-400 hover:text-slate-200 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-full transition-all"
+                            >
+                                💡 {tpl}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Message input */}
+                    <div class="px-6 py-4 border-t border-slate-800 bg-slate-950/40 flex gap-3">
+                        <input 
+                            type="text" 
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && submit()}
+                            placeholder="Ask CRISPR, Genomes sequence details, transcribing, model tertiary protein structures..."
+                            class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 outline-none focus:border-brand-600 transition-all placeholder:text-slate-500"
+                        />
+                        <button 
+                            onClick={submit}
+                            class="bg-brand-600 hover:bg-brand-700 text-white rounded-xl px-6 py-3 font-semibold text-sm transition-all shadow-md shadow-brand-600/15"
+                        >
+                            Send
+                        </button>
+                    </div>
+
+                </div>
+            );
+        }
+
+        // --- SCREEN COMPONENT 3: DNA SCREEN ---
+        function DnaScreen({ dnaInput, setDnaInput, dnaSequenceName, setDnaSequenceName, onSaveRecord }) {
+            
+            // --- DNA Calculations ---
+            const cleanSeq = useMemo(() => {
+                return dnaInput.toUpperCase().replace(/[^ATGCN]/g, '');
+            }, [dnaInput]);
+
+            const gcContent = useMemo(() => {
+                if (cleanSeq.length === 0) return 0;
+                const gc = cleanSeq.split('').filter(c => c === 'G' || c === 'C').length;
+                return (gc / cleanSeq.length) * 100;
+            }, [cleanSeq]);
+
+            const molecularWeight = useMemo(() => {
+                if (cleanSeq.length === 0) return 0;
+                return (cleanSeq.length * 303.7) + 79.0;
+            }, [cleanSeq]);
+
+            const complement = useMemo(() => {
+                return cleanSeq.split('').map(nucleotide => {
+                    switch (nucleotide) {
+                        case 'A': return 'T';
+                        case 'T': return 'A';
+                        case 'G': return 'C';
+                        case 'C': return 'G';
+                        default: return 'N';
+                    }
+                }).join('');
+            }, [cleanSeq]);
+
+            const reverseComplement = useMemo(() => {
+                return complement.split('').reverse().join('');
+            }, [complement]);
+
+            const translation = useMemo(() => {
+                let aminoAcids = "";
+                for (let i = 0; i < cleanSeq.length - 2; i += 3) {
+                    const codon = cleanSeq.substring(i, i + 3);
+                    aminoAcids += CODON_TABLE[codon] || "X";
+                }
+                return aminoAcids;
+            }, [cleanSeq]);
+
+            const orfsList = useMemo(() => {
+                const results = [];
+                let startIdx = -1;
+                for (let i = 0; i < translation.length; i++) {
+                    if (translation[i] === 'M') {
+                        if (startIdx === -1) startIdx = i;
+                    } else if (translation[i] === '*' && startIdx !== -1) {
+                        results.push(translation.substring(startIdx, i));
+                        startIdx = -1;
+                    }
+                }
+                if (startIdx !== -1) {
+                    results.push(translation.substring(startIdx));
+                }
+                return results;
+            }, [translation]);
+
+            const restrictionSites = useMemo(() => {
+                const found = [];
+                const enzymes = {
+                    "EcoRI (GAATTC)": "GAATTC",
+                    "BamHI (GGATCC)": "GGATCC",
+                    "HindIII (AAGCTT)": "AAGCTT"
+                };
+                Object.entries(enzymes).forEach(([name, pattern]) => {
+                    let index = cleanSeq.indexOf(pattern);
+                    while (index !== -1) {
+                        found.push({ name, position: index + 1 });
+                        index = cleanSeq.indexOf(pattern, index + 1);
+                    }
+                });
+                return found;
+            }, [cleanSeq]);
+
+            const codonFrequencies = useMemo(() => {
+                const map = {};
+                for (let i = 0; i < cleanSeq.length - 2; i += 3) {
+                    const codon = cleanSeq.substring(i, i + 3);
+                    if (codon.length === 3) {
+                        map[codon] = (map[codon] || 0) + 1;
+                    }
+                }
+                return Object.entries(map).sort((a, b) => b[1] - a[1]);
+            }, [cleanSeq]);
+
+            const copyToClipboard = (text) => {
+                navigator.clipboard.writeText(text);
+                alert("Text successfully copied to clipboard.");
+            };
+
+            const triggerSave = () => {
+                const results = {
+                    length: cleanSeq.length,
+                    gcContent,
+                    molecularWeight,
+                    complement,
+                    protein: translation,
+                    orfsCount: orfsList.length
+                };
+                onSaveRecord("DNA", dnaSequenceName || "Unnamed Assay", cleanSeq, results);
+            };
+
+            return (
+                <div class="flex flex-col gap-6 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div class="bg-brand-600/10 border border-brand-500/20 rounded-2xl p-6 glow-blue">
+                        <span class="text-[10px] text-brand-500 font-bold uppercase tracking-wider">🧬 DNA SEQUENCE ASSAY WORKSPACE</span>
+                        <h2 class="text-xl font-bold text-white font-display mt-1">Direct Genomes Transcriptions & Translation Algorithms</h2>
+                        <p class="text-sm text-slate-400 mt-2 leading-relaxed">
+                            Perform molecular weights calculations, open reading frame (ORF) discoveries, complementary pairings alignments, and codon usages scans.
+                        </p>
+                    </div>
+
+                    {/* Inputs panel */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-4">
+                        <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Target Sequence Parameters</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <label class="flex flex-col gap-1.5 text-xs text-slate-400 md:col-span-1">
+                                Sequence Identifier/Target Name
+                                <input 
+                                    type="text" 
+                                    value={dnaSequenceName}
+                                    onChange={(e) => setDnaSequenceName(e.target.value)}
+                                    placeholder="e.g. TP53 Segment Alpha"
+                                    class="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-slate-100 text-sm outline-none focus:border-brand-600 font-medium"
+                                />
+                            </label>
+                            <label class="flex flex-col gap-1.5 text-xs text-slate-400 md:col-span-2">
+                                Pasted DNA Sequence (A, T, G, C, N)
+                                <input 
+                                    type="text" 
+                                    value={dnaInput}
+                                    onChange={(e) => setDnaInput(e.target.value)}
+                                    placeholder="Enter nucleotide chains..."
+                                    class="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-slate-100 font-mono text-sm outline-none focus:border-brand-600"
+                                />
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Stats metric cards */}
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Nucleotides Length</p>
+                            <p class="text-2xl font-black font-display text-white mt-1">{cleanSeq.length} <span class="text-xs text-slate-400">bp</span></p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">GC Content Percentage</p>
+                            <p class="text-2xl font-black font-display text-white mt-1">{gcContent.toFixed(1)} <span class="text-xs text-slate-400">%</span></p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Approx. Molecular Weight</p>
+                            <p class="text-2xl font-black font-display text-white mt-1">{molecularWeight.toFixed(0)} <span class="text-xs text-slate-400">Da</span></p>
+                        </div>
+                    </div>
+
+                    {/* Mappings & Transcription Display */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-5">
+                        <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Alignments and Codon Transcription</h4>
+                        
+                        {/* Complement Structure */}
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex justify-between items-center text-xs font-semibold text-slate-400">
+                                <span>Complement Strand Structure</span>
+                                <button onClick={() => copyToClipboard(complement)} class="text-brand-500 hover:text-brand-400 font-bold text-[10px]">Copy 📋</button>
+                            </div>
+                            <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-300 break-all select-all">
+                                {complement || 'Empty Sequence'}
+                            </div>
+                        </div>
+
+                        {/* Reverse Complement */}
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex justify-between items-center text-xs font-semibold text-slate-400">
+                                <span>Reverse Complement Sequence (5' -> 3')</span>
+                                <button onClick={() => copyToClipboard(reverseComplement)} class="text-brand-500 hover:text-brand-400 font-bold text-[10px]">Copy 📋</button>
+                            </div>
+                            <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-300 break-all select-all">
+                                {reverseComplement || 'Empty Sequence'}
+                            </div>
+                        </div>
+
+                        {/* Protein Peptide Translation */}
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex justify-between items-center text-xs font-semibold text-slate-400">
+                                <span>Translated Amino Acid Residues sequence (Frame +1)</span>
+                                <button onClick={() => copyToClipboard(translation)} class="text-brand-500 hover:text-brand-400 font-bold text-[10px]">Copy 📋</button>
+                            </div>
+                            <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-300 break-all select-all">
+                                {translation || 'Empty Sequence'}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ORFs and Restriction Enzymes */}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        {/* Open Reading Frames */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-3">
+                            <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Predicted Open Reading Frames (ORFs)</h4>
+                            {orfsList.length === 0 ? (
+                                <p class="text-xs text-slate-500">No standard ATG/Stop bounded ORFs found in Frame +1.</p>
+                            ) : (
+                                <div class="flex flex-col gap-2 overflow-y-auto max-h-48">
+                                    {orfsList.map((orf, i) => (
+                                        <div key={i} class="p-2.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-xs font-mono text-emerald-400 break-all">
+                                            <strong>ORF {i+1}</strong> ({orf.length} aa): {orf}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Restriction sites */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-3">
+                            <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Enzyme Restriction Sites Mapped</h4>
+                            {restrictionSites.length === 0 ? (
+                                <p class="text-xs text-slate-500">No standard cuts sites matched in sequence (EcoRI, BamHI, HindIII).</p>
+                            ) : (
+                                <div class="flex flex-col gap-2 overflow-y-auto max-h-48">
+                                    {restrictionSites.map((site, i) => (
+                                        <div key={i} class="p-2.5 bg-brand-600/5 border border-brand-500/10 rounded-lg text-xs font-mono text-brand-400">
+                                            ✂️ Cut site for <strong>{site.name}</strong> mapped at nucleotide position: <strong>{site.position}</strong>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+
+                    {/* Codon usage frequency */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-3">
+                        <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Codon Usage Frequencies</h4>
+                        {codonFrequencies.length === 0 ? (
+                            <p class="text-xs text-slate-500">No codon frequencies calculated.</p>
+                        ) : (
+                            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                                {codonFrequencies.slice(0, 12).map(([codon, count], idx) => (
+                                    <div key={idx} class="p-2 bg-slate-950 border border-slate-800 rounded-lg text-center">
+                                        <p class="text-xs font-mono font-bold text-white">{codon}</p>
+                                        <p class="text-[10px] text-slate-500 mt-0.5">{count} runs</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Action save button */}
+                    <button 
+                        onClick={triggerSave}
+                        class="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold text-sm tracking-wide shadow-md shadow-brand-600/15 transition-all"
+                    >
+                        Save Assay Record to Workspace Catalog
+                    </button>
+
+                </div>
+            );
+        }
+
+        // --- SCREEN COMPONENT 4: RNA SCREEN ---
+        function RnaScreen({ rnaInput, setRnaInput, onSaveRecord }) {
+            const [hoveredPoint, setHoveredPoint] = useState(null);
+
+            const cleanRna = useMemo(() => {
+                return rnaInput.toUpperCase().replace(/[^AUGCN]/g, '');
+            }, [rnaInput]);
+
+            // Stem Loop Base pairing prediction
+            const pairings = useMemo(() => {
+                const pairs = [];
+                const stack = [];
+                for (let i = 0; i < cleanRna.length; i++) {
+                    const char = cleanRna[i];
+                    if (char === 'G' || char === 'A') {
+                        stack.push(i);
+                    } else if (char === 'C' || char === 'U') {
+                        if (stack.length > 0) {
+                            const matchIdx = stack.pop();
+                            const matchChar = cleanRna[matchIdx];
+                            // Watson-Crick AU, GC, wobble GU pairs
+                            if ((matchChar === 'A' && char === 'U') ||
+                                (matchChar === 'G' && char === 'C') ||
+                                (matchChar === 'G' && char === 'U')) {
+                                pairs.push({ first: matchIdx, second: i });
+                            }
+                        }
+                    }
+                }
+                return pairs.sort((a, b) => a.first - b.first);
+            }, [cleanRna]);
+
+            // Mock Volcano Plot point coordinates
+            const volcanoPoints = [
+                { log2FC: -2.5, pValue: 0.0001, gene: "DNMT1", status: "Down" },
+                { log2FC: -1.8, pValue: 0.001, gene: "EZH2", status: "Down" },
+                { log2FC: 3.2, pValue: 0.00001, gene: "MYC", status: "Up" },
+                { log2FC: 2.1, pValue: 0.0005, gene: "SOX2", status: "Up" },
+                { log2FC: -0.3, pValue: 0.5, gene: "GAPDH", status: "Neutral" },
+                { log2FC: 0.5, pValue: 0.3, gene: "ACTB", status: "Neutral" },
+                { log2FC: 1.2, pValue: 0.08, gene: "TP53", status: "Neutral" },
+                { log2FC: -1.1, pValue: 0.04, gene: "DNMT3A", status: "Down" },
+                { log2FC: 2.8, pValue: 0.00004, gene: "OCT4", status: "Up" }
+            ];
+
+            // Heatmap grid rows
+            const heatmapGenes = ["MYC", "SOX2", "DNMT1", "EZH2"];
+            const heatmapData = [
+                [1.2, 1.0, 4.5, 4.2], // MYC
+                [0.8, 0.9, 3.1, 3.4], // SOX2
+                [5.1, 4.8, 1.5, 1.2], // DNMT1
+                [3.9, 4.2, 0.9, 0.8]  // EZH2
+            ];
+
+            const triggerSave = () => {
+                onSaveRecord("RNA", "transcript_assay_01", cleanRna, {
+                    secondaryStructurePairings: pairings.length,
+                    regulationRatio: "UpDownScaled"
+                });
+            };
+
+            return (
+                <div class="flex flex-col gap-6 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div class="bg-emerald-600/10 border border-emerald-500/20 rounded-2xl p-6 glow-green">
+                        <span class="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">🧪 RNA TRANSCRIPT ANALYSIS WORKSPACE</span>
+                        <h2 class="text-xl font-bold text-white font-display mt-1">Secondary Wobble Base Foldings & Transcript Expressions</h2>
+                        <p class="text-sm text-slate-400 mt-2 leading-relaxed">
+                            Evaluate differential transcriptomics coordinates using interactive Volcano charts, heatmaps expression panels, and predicted hairpins loops.
+                        </p>
+                    </div>
+
+                    {/* Inputs */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300 mb-3">RNA Transcript Nucleotides</h4>
+                        <label class="flex flex-col gap-1.5 text-xs text-slate-400">
+                            Pasted RNA Sequence (A, U, G, C)
+                            <input 
+                                type="text" 
+                                value={rnaInput}
+                                onChange={(e) => setRnaInput(e.target.value)}
+                                placeholder="Enter RNA nucleotide vectors..."
+                                class="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-slate-100 font-mono text-sm outline-none focus:border-emerald-600"
+                            />
+                        </label>
+                    </div>
+
+                    {/* Stem Loops Predicted */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300 mb-3">Secondary Wobble Stem Loop Connections</h4>
+                        {pairings.length === 0 ? (
+                            <p class="text-xs text-slate-500">No folded hairpins or stem connections predicted on sequence.</p>
+                        ) : (
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                                {pairings.map((p, idx) => (
+                                    <div key={idx} class="p-2.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-xs font-mono text-emerald-400">
+                                        🔗 Loop stems: Base <strong>[{cleanRna[p.first]} at {p.first}]</strong> pairs with Base <strong>[{cleanRna[p.second]} at {p.second}]</strong>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Interactive Volcano Plot Graphic */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-4">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                            <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Differential expression (Volcano plot)</h4>
+                            <span class="text-[10px] font-mono font-bold bg-brand-600/10 border border-brand-600/20 px-2 py-0.5 rounded text-brand-500">
+                                MCF-7 Treated vs Ctrl
+                            </span>
+                        </div>
+
+                        <div class="relative bg-slate-950 border border-slate-800/80 rounded-xl p-4 h-64 flex justify-center items-center">
+                            
+                            {/* SVG Chart area */}
+                            <svg class="w-full h-full" viewBox="0 0 500 240">
+                                {/* Axes */}
+                                <line x1="40" y1="210" x2="480" y2="210" stroke="#475569" stroke-width="1.5" />
+                                <line x1="40" y1="10" x2="40" y2="210" stroke="#475569" stroke-width="1.5" />
+                                
+                                {/* FC reference line (Zero) */}
+                                <line x1="260" y1="10" x2="260" y2="210" stroke="#334155" stroke-width="1" stroke-dasharray="3" />
+                                
+                                {/* Points */}
+                                {volcanoPoints.map((p, idx) => {
+                                    // Map X: -4 to +4 range -> x=40 to x=480 (range 440)
+                                    const x = 260 + (p.log2FC / 4.5) * 220;
+                                    
+                                    // Map Y: -log10(p-value) range 0 to 5 -> y=210 to y=10
+                                    const negLogP = -Math.log10(p.pValue);
+                                    const y = 210 - (negLogP / 5.2) * 200;
+
+                                    const pointColor = p.status === 'Up' ? '#ef4444' : p.status === 'Down' ? '#10b981' : '#64748b';
+
+                                    return (
+                                        <g 
+                                            key={idx}
+                                            className="cursor-pointer group"
+                                            onMouseEnter={() => setHoveredPoint(p)}
+                                            onMouseLeave={() => setHoveredPoint(null)}
+                                        >
+                                            <circle 
+                                                cx={x} 
+                                                cy={y} 
+                                                r={hoveredPoint?.gene === p.gene ? "8" : "5"} 
+                                                fill={pointColor} 
+                                                className="transition-all duration-150 shadow-md"
+                                            />
+                                            {/* Text labels for genes */}
+                                            <text 
+                                                x={x + 8} 
+                                                y={y + 4} 
+                                                fill="#94a3b8" 
+                                                fontSize="9" 
+                                                fontFamily="monospace"
+                                            >
+                                                {p.gene}
+                                            </text>
+                                        </g>
+                                    );
+                                })}
+                            </svg>
+
+                            {/* Point tooltip hover */}
+                            {hoveredPoint && (
+                                <div class="absolute bottom-4 left-4 bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-[11px] flex flex-col gap-0.5 shadow-lg">
+                                    <p class="font-bold text-white">Gene: {hoveredPoint.gene}</p>
+                                    <p class="text-slate-400">log2 Fold Change: <strong class={hoveredPoint.status === 'Up' ? 'text-rose-500' : hoveredPoint.status === 'Down' ? 'text-emerald-500' : 'text-slate-300'}>{hoveredPoint.log2FC}</strong></p>
+                                    <p class="text-slate-400">p-value: <strong class="text-blue-400">{hoveredPoint.pValue.toFixed(5)}</strong></p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Legends */}
+                        <div class="flex justify-center gap-6 text-[10px] text-slate-400 font-semibold font-mono uppercase tracking-wider">
+                            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded bg-rose-500"></span> Up-regulated</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded bg-emerald-500"></span> Down-regulated</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded bg-slate-500"></span> Neutral</span>
+                        </div>
+                    </div>
+
+                    {/* Heatmap Section */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-4">
+                        <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Transcript expression Heatmap matrix</h4>
+                        
+                        <div class="flex flex-col gap-2">
+                            {/* Samples header */}
+                            <div class="grid grid-cols-5 text-center text-[10px] font-mono font-bold text-slate-500">
+                                <div>Gene</div>
+                                <div>Control-1</div>
+                                <div>Control-2</div>
+                                <div>Treated-1</div>
+                                <div>Treated-2</div>
+                            </div>
+
+                            {/* Matrix content */}
+                            {heatmapGenes.map((gene, rowIdx) => {
+                                const rowData = heatmapData[rowIdx];
+                                return (
+                                    <div key={rowIdx} class="grid grid-cols-5 items-center text-center">
+                                        <div class="text-xs font-mono font-bold text-slate-300 text-left pl-2">{gene}</div>
+                                        {rowData.map((val, colIdx) => {
+                                            // Scale colors based on treated expression levels
+                                            const bgStyle = val > 3.0 
+                                                ? `rgba(239, 68, 68, ${val / 5.1})` 
+                                                : `rgba(59, 130, 246, ${(5.1 - val) / 5.1})`;
+                                            return (
+                                                <div 
+                                                    key={colIdx} 
+                                                    class="h-8 rounded m-0.5 flex items-center justify-center text-[11px] font-bold text-white transition-all shadow-sm"
+                                                    style={{ backgroundColor: bgStyle }}
+                                                >
+                                                    {val.toFixed(1)}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Save button */}
+                    <button 
+                        onClick={triggerSave}
+                        class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm tracking-wide shadow-md shadow-emerald-600/15 transition-all"
+                    >
+                        Save RNA Transcript Run
+                    </button>
+
+                </div>
+            );
+        }
+
+        // --- SCREEN COMPONENT 5: PROTEIN SCREEN ---
+        function ProteinScreen({ proteinInput, setProteinInput, onSaveRecord }) {
+            const canvasRef = useRef(null);
+            const [rotation, setRotation] = useState(45);
+            const [isAutoSpin, setIsAutoSpin] = useState(true);
+
+            const cleanProtein = useMemo(() => {
+                return proteinInput.toUpperCase().replace(/[^ACDEFGHIKLMNPQRSTVWY]/g, '');
+            }, [proteinInput]);
+
+            // Hydrophobicity GRAVY
+            const gravies = useMemo(() => {
+                if (cleanProtein.length === 0) return 0;
+                const sum = cleanProtein.split('').reduce((acc, aa) => acc + (HYDROPHOBICITY_MAP[aa] || 0), 0);
+                return sum / cleanProtein.length;
+            }, [cleanProtein]);
+
+            // Approx Mass
+            const approxMass = cleanProtein.length * 110;
+
+            // Acidic/Basic residues
+            const charges = useMemo(() => {
+                const positive = cleanProtein.split('').filter(aa => aa === 'K' || aa === 'R' || aa === 'H').length;
+                const negative = cleanProtein.split('').filter(aa => aa === 'D' || aa === 'E').length;
+                return { positive, negative };
+            }, [cleanProtein]);
+
+            // Motif scanner
+            const motifsList = useMemo(() => {
+                const found = [];
+                // Phosphorylation: [ST].[RK]
+                const phosphoRegex = /[ST].[RK]/g;
+                let match;
+                while ((match = phosphoRegex.exec(cleanProtein)) !== null) {
+                    found.push(`Kinase Phosphorylation Locus at index ${match.index + 1} (${match[0]})`);
+                }
+                // N-glycosylation: N[^P][ST]
+                const glycosylRegex = /N[^P][ST]/g;
+                while ((match = glycosylRegex.exec(cleanProtein)) !== null) {
+                    found.push(`N-Glycosylation Target at index ${match.index + 1} (${match[0]})`);
+                }
+                return found;
+            }, [cleanProtein]);
+
+            // 3D Atomic Helix Ribbon canvas rendering loop
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                let frameId;
+
+                const render = () => {
+                    const w = canvas.width = canvas.offsetWidth;
+                    const h = canvas.height = canvas.offsetHeight;
+                    ctx.clearRect(0, 0, w, h);
+                    
+                    const yCenter = h / 2;
+                    const rad = (rotation * Math.PI) / 180;
+                    
+                    // Draw helical ribbon
+                    ctx.beginPath();
+                    ctx.strokeStyle = "#38bdf8";
+                    ctx.lineWidth = 4;
+                    ctx.lineCap = "round";
+
+                    for (let x = 30; x < w - 30; x += 1.5) {
+                        const offset3D = Math.sin(x * 0.05 + rad) * 22;
+                        const y = yCenter + Math.cos(x * 0.02) * 35 + offset3D;
+                        if (x === 30) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+
+                    // Draw atomic sidechains
+                    for (let x = 40; x < w - 40; x += 25) {
+                        const offset3D = Math.sin(x * 0.05 + rad) * 22;
+                        const y = yCenter + Math.cos(x * 0.02) * 35 + offset3D;
+
+                        // Red atomic spheres (Oxygen)
+                        ctx.beginPath();
+                        ctx.arc(x, y - 25, 4.5, 0, 2 * Math.PI);
+                        ctx.fillStyle = "#ef4444";
+                        ctx.fill();
+
+                        // Blue atomic spheres (Nitrogen)
+                        ctx.beginPath();
+                        ctx.arc(x + 8, y + 20, 4, 0, 2 * Math.PI);
+                        ctx.fillStyle = "#3b82f6";
+                        ctx.fill();
+
+                        // Connections lines
+                        ctx.beginPath();
+                        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+                        ctx.lineWidth = 1;
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x, y - 25);
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + 8, y + 20);
+                        ctx.stroke();
+                    }
+
+                    // Spin increment
+                    if (isAutoSpin) {
+                        setRotation(r => (r + 0.5) % 360);
+                    }
+                    frameId = requestAnimationFrame(render);
+                };
+
+                render();
+                return () => cancelAnimationFrame(frameId);
+            }, [rotation, isAutoSpin]);
+
+            const triggerSave = () => {
+                onSaveRecord("PROTEIN", "peptide_structural_run", cleanProtein, {
+                    hydrophobicity: gravies,
+                    isoelectricEst: "Estimated PI"
+                });
+            };
+
+            return (
+                <div class="flex flex-col gap-6 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-2xl p-6 glow-blue">
+                        <span class="text-[10px] text-indigo-500 font-bold uppercase tracking-wider">🧬 PROTEIN STRUCTURAL WORKSPACE</span>
+                        <h2 class="text-xl font-bold text-white font-display mt-1">Biophysical Profiles & Tertiary Ribbon Models</h2>
+                        <p class="text-sm text-slate-400 mt-2 leading-relaxed">
+                            Analyze Hydrophobicity scores (GRAVY indexes), identify localized glycosylation motifs, and spin 3D helices side-chains.
+                        </p>
+                    </div>
+
+                    {/* Inputs */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300 mb-3">Target Peptide Sequence</h4>
+                        <label class="flex flex-col gap-1.5 text-xs text-slate-400">
+                            Fasta Amino Acids (A, C, D, E...)
+                            <input 
+                                type="text" 
+                                value={proteinInput}
+                                onChange={(e) => setProteinInput(e.target.value)}
+                                placeholder="Enter FASTA residue strings..."
+                                class="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-slate-100 font-mono text-sm outline-none focus:border-indigo-600"
+                            />
+                        </label>
+                    </div>
+
+                    {/* Quick values widgets */}
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Residues Count</p>
+                            <p class="text-2xl font-black font-display text-white mt-1">{cleanProtein.length} <span class="text-xs text-slate-400">aa</span></p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Hydrophobicity (GRAVY)</p>
+                            <p class="text-2xl font-black font-display text-white mt-1">{gravies.toFixed(2)} <span class="text-xs text-slate-400">index</span></p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Estimated Peptide Mass</p>
+                            <p class="text-2xl font-black font-display text-white mt-1">{(approxMass / 1000).toFixed(1)} <span class="text-xs text-slate-400">kDa</span></p>
+                        </div>
+                    </div>
+
+                    {/* Rotating 3D Atomic Helix Ribbon */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-4">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                            <div>
+                                <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">3D atomic structural ribbon</h4>
+                                <p class="text-[10px] text-slate-500 mt-0.5">Click canvas to drag/spin structure manually</p>
+                            </div>
+                            <button 
+                                onClick={() => setIsAutoSpin(!isAutoSpin)}
+                                class={`text-[10px] font-bold px-3 py-1 rounded border transition-all ${
+                                    isAutoSpin 
+                                    ? 'bg-brand-600/15 border-brand-500/20 text-brand-500' 
+                                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                                }`}
+                            >
+                                {isAutoSpin ? '🟢 Auto Spinning' : '🔴 Paused'}
+                            </button>
+                        </div>
+
+                        {/* Interactive Canvas */}
+                        <div class="relative bg-slate-950 border border-slate-850 rounded-xl overflow-hidden h-52 flex items-center justify-center">
+                            <canvas 
+                                ref={canvasRef} 
+                                onClick={() => {
+                                    setRotation(r => (r + 30) % 360);
+                                    setIsAutoSpin(false);
+                                }}
+                                class="w-full h-full cursor-pointer"
+                            ></canvas>
+                            <div class="absolute bottom-3 left-3 text-[10px] text-slate-500 font-mono">
+                                Helix Ribbon (Angle: {Math.floor(rotation)}°)
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Biophysical Assays */}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        {/* Acidic Basic list */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-3">
+                            <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Residues Charges Distribution</h4>
+                            <div class="flex flex-col gap-2 text-xs">
+                                <div class="flex justify-between items-center py-1.5 border-b border-slate-800/60">
+                                    <span class="text-slate-400 font-medium">Basic Amino Acids (H, K, R):</span>
+                                    <span class="font-bold text-blue-400">{charges.positive} residues</span>
+                                </div>
+                                <div class="flex justify-between items-center py-1.5">
+                                    <span class="text-slate-400 font-medium">Acidic Amino Acids (D, E):</span>
+                                    <span class="font-bold text-rose-400">{charges.negative} residues</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Active site motifs */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-3">
+                            <h4 class="text-sm font-bold font-display uppercase tracking-wider text-slate-300">Active phosphorylation / Glycosylation Motifs</h4>
+                            {motifsList.length === 0 ? (
+                                <p class="text-xs text-slate-500">No regulatory motifs matched on FASTA string.</p>
+                            ) : (
+                                <div class="flex flex-col gap-2 max-h-36 overflow-y-auto">
+                                    {motifsList.map((m, idx) => (
+                                        <div key={idx} class="p-2.5 bg-amber-500/5 border border-amber-500/10 rounded-lg text-xs font-mono text-amber-500">
+                                            💡 {m}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+
+                    {/* Save button */}
+                    <button 
+                        onClick={triggerSave}
+                        class="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold text-sm tracking-wide shadow-md shadow-brand-600/15 transition-all"
+                    >
+                        Save Protein Structure Run
+                    </button>
+
+                </div>
+            );
+        }
+
+        // --- SCREEN COMPONENT 6: SCI DB SEARCH ---
+        function DatabaseScreen({ dbQuery, setDbQuery, onSearch, isLoading, pubMedResults, uniProtResults, onImportPaper, onLoadProtein, onLoadDna }) {
+            const [tab, setTab] = useState(0); // 0 = PubMed, 1 = UniProt
+
+            return (
+                <div class="flex flex-col gap-6 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-4">
+                        <span class="text-[10px] text-brand-500 font-bold uppercase tracking-widest font-mono">NCBI ENTREZ SCIENTIFIC CLIENT</span>
+                        <h2 class="text-xl font-bold text-white font-display">Genomic Libraries & Publications Search</h2>
+                        
+                        {/* Search input group */}
+                        <div class="flex gap-2.5 mt-2">
+                            <input 
+                                type="text" 
+                                value={dbQuery}
+                                onChange={(e) => setDbQuery(e.target.value)}
+                                placeholder="Search CRISPR Cas9, Spike sequences, P53_HUMAN, etc..."
+                                class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-slate-100 text-sm outline-none focus:border-brand-600"
+                            />
+                            <button 
+                                onClick={onSearch}
+                                disabled={isLoading}
+                                class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-6 py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 min-w-[100px] transition-all disabled:opacity-50"
+                            >
+                                {isLoading ? 'Searching...' : 'Search'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Database Tabs selector */}
+                    <div class="flex border-b border-slate-800 bg-slate-900/30 rounded-xl p-1 gap-1">
+                        <button 
+                            onClick={() => setTab(0)}
+                            class={`flex-1 py-3 text-center text-xs font-bold font-mono tracking-wider uppercase rounded-lg transition-all ${
+                                tab === 0 
+                                ? 'bg-slate-900 border border-slate-800 text-brand-500 font-semibold shadow-sm' 
+                                : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            PubMed Literature ({pubMedResults.length})
+                        </button>
+                        <button 
+                            onClick={() => setTab(1)}
+                            class={`flex-1 py-3 text-center text-xs font-bold font-mono tracking-wider uppercase rounded-lg transition-all ${
+                                tab === 1 
+                                ? 'bg-slate-900 border border-slate-800 text-brand-500 font-semibold shadow-sm' 
+                                : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            UniProt Proteins ({uniProtResults.length})
+                        </button>
+                    </div>
+
+                    {/* Results list mapping */}
+                    <div class="flex flex-col gap-4">
+                        {isLoading ? (
+                            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center flex flex-col items-center gap-3">
+                                <span class="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin"></span>
+                                <span class="text-xs text-slate-400">Querying NCBI and UniProt servers...</span>
+                            </div>
+                        ) : tab === 0 ? (
+                            // PubMed list
+                            pubMedResults.length === 0 ? (
+                                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500 text-xs">
+                                    Type terms above and click Search to query verified PubMed literature files.
+                                </div>
+                            ) : (
+                                pubMedResults.map((paper, i) => (
+                                    <div key={i} class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-3 shadow-sm">
+                                        <div class="flex justify-between items-center text-[10px] font-mono text-slate-400 border-b border-slate-800 pb-2">
+                                            <span class="text-brand-500 font-bold">PubMed PMID: {paper.pmid}</span>
+                                            <span>{paper.journal} • {paper.pubYear}</span>
+                                        </div>
+                                        <h4 class="text-base font-bold text-white leading-snug">{paper.title}</h4>
+                                        <p class="text-xs text-slate-400 italic">Authors: {paper.authors}</p>
+                                        <p class="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-850">{paper.abstractText}</p>
+                                        
+                                        <button 
+                                            onClick={() => onImportPaper(paper)}
+                                            class="mt-2 w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-brand-500 font-semibold text-xs rounded-lg transition-all"
+                                        >
+                                            📥 Import Paper to active Summarizer
+                                        </button>
+                                    </div>
+                                ))
+                            )
+                        ) : (
+                            // UniProt proteins list
+                            uniProtResults.length === 0 ? (
+                                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500 text-xs">
+                                    Type terms above and click Search to download dynamic FASTA chains from UniProt database.
+                                </div>
+                            ) : (
+                                uniProtResults.map((prot, i) => (
+                                    <div key={i} class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-3 shadow-sm">
+                                        <div class="flex justify-between items-center text-[10px] font-mono text-slate-400 border-b border-slate-800 pb-2">
+                                            <span class="text-brand-500 font-bold">Accession: {prot.primaryAccession}</span>
+                                            <span>KbId: {prot.uniProtkbId}</span>
+                                        </div>
+                                        <h4 class="text-base font-bold text-white mt-1">{prot.proteinName}</h4>
+                                        <p class="text-xs text-slate-400">Organism: {prot.organism}</p>
+                                        
+                                        <div class="flex flex-col gap-1 mt-1 text-xs">
+                                            <span class="font-bold text-slate-400">Sequence FASTA residue ({prot.sequence.length} aa):</span>
+                                            <p class="font-mono bg-slate-950 border border-slate-850 p-2.5 rounded text-slate-400 break-all select-all">
+                                                {prot.sequence}
+                                            </p>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 gap-3 mt-3">
+                                            <button 
+                                                onClick={() => onLoadProtein(prot.sequence)}
+                                                class="py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold transition-all"
+                                            >
+                                                Load Amino Acids FASTA
+                                            </button>
+                                            <button 
+                                                onClick={() => onLoadDna(prot.sequence)}
+                                                class="py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-lg text-xs font-semibold transition-all"
+                                            >
+                                                Load as DNA Target vector
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )
+                        )}
+                    </div>
+
+                </div>
+            );
+        }
+
+        // --- SCREEN COMPONENT 7: RESEARCH SCREEN ---
+        function ResearchScreen({ papers, selectedPaper, onSelectPaper, onDeletePaper }) {
+            return (
+                <div class="flex flex-col gap-6 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h2 class="text-xl font-bold font-display text-white">Indexed Research Literature</h2>
+                        <p class="text-sm text-slate-400 mt-1">Abstract summaries and full publications transcripts catalog.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        {/* Left column list */}
+                        <div class="flex flex-col gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 lg:col-span-1 h-[450px] overflow-y-auto">
+                            <h4 class="text-xs font-bold font-display uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2">Indexed Library</h4>
+                            {papers.length === 0 ? (
+                                <p class="text-xs text-slate-500 py-4">No literature papers imported. Search PubMed first.</p>
+                            ) : (
+                                papers.map(paper => {
+                                    const isSelected = selectedPaper?.id === paper.id;
+                                    return (
+                                        <div 
+                                            key={paper.id}
+                                            onClick={() => onSelectPaper(paper)}
+                                            class={`p-3 rounded-lg border cursor-pointer transition-all ${
+                                                isSelected 
+                                                ? 'bg-brand-600/5 border-brand-600/30' 
+                                                : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700'
+                                            }`}
+                                        >
+                                            <h5 class="text-xs font-bold text-white truncate">{paper.title}</h5>
+                                            <p class="text-[9px] font-mono text-slate-500 mt-1">PMID: {paper.pmid} • {paper.pubYear}</p>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        {/* Right column details */}
+                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between min-h-[450px]">
+                            {selectedPaper ? (
+                                <div class="flex flex-col gap-4">
+                                    <div class="flex justify-between items-start border-b border-slate-800 pb-3">
+                                        <div>
+                                            <span class="text-[9px] bg-brand-600/10 border border-brand-600/20 text-brand-500 rounded px-2 py-0.5 font-bold uppercase font-mono tracking-wider">
+                                                PMID: {selectedPaper.pmid}
+                                            </span>
+                                            <h3 class="text-base font-bold text-white mt-2 leading-snug">{selectedPaper.title}</h3>
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                onDeletePaper(selectedPaper.id);
+                                                onSelectPaper(null);
+                                            }}
+                                            class="text-rose-500 hover:text-rose-400 text-xs py-1 px-2 hover:bg-rose-500/10 rounded transition-all"
+                                        >
+                                            Remove 🗑️
+                                        </button>
+                                    </div>
+
+                                    <p class="text-xs text-slate-400 italic">Journal: <strong>{selectedPaper.journal} ({selectedPaper.pubYear})</strong> • Authors: {selectedPaper.authors}</p>
+                                    
+                                    <div class="flex flex-col gap-2 bg-slate-950 p-4 border border-slate-850 rounded-xl max-h-72 overflow-y-auto">
+                                        <span class="text-[10px] text-brand-500 font-bold uppercase tracking-widest font-mono">Abstract Summary</span>
+                                        <p class="text-xs text-slate-300 leading-relaxed">{selectedPaper.abstractText}</p>
+                                        
+                                        <span class="text-[10px] text-emerald-500 font-bold uppercase tracking-widest font-mono mt-4 border-t border-slate-850 pt-3">Full Text Transcription</span>
+                                        <p class="text-xs font-mono text-slate-400 leading-relaxed whitespace-pre-wrap">{selectedPaper.fullText}</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div class="flex-1 flex flex-col justify-center items-center text-slate-500 text-xs">
+                                    <span>📚</span>
+                                    <span class="mt-2">Select an imported research publication on the left tab to read details.</span>
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+
+                </div>
+            );
+        }
+
+        // --- SCREEN COMPONENT 8: NOTEBOOK SCREEN ---
+        function NotebookScreen({ notes, noteTitle, setNoteTitle, noteContent, setNoteContent, onSave, onEdit, onDelete, editingId }) {
+            return (
+                <div class="flex flex-col gap-6 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                        <h2 class="text-xl font-bold font-display text-white">Laboratory Notebook log</h2>
+                        <p class="text-sm text-slate-400 mt-1">CRUD logs for molecular designs, experimental parameters telemetry.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        {/* Form column */}
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 lg:col-span-1 h-max">
+                            <h4 class="text-xs font-bold font-display uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2">
+                                {editingId ? '✏️ Edit Log Record' : '📝 Write new Notebook'}
+                            </h4>
+                            <div class="flex flex-col gap-3">
+                                <label class="flex flex-col gap-1.5 text-xs text-slate-400">
+                                    Notebook Subject / Title
+                                    <input 
+                                        type="text" 
+                                        value={noteTitle}
+                                        onChange={(e) => setNoteTitle(e.target.value)}
+                                        placeholder="e.g. gRNA DNMT1 Design"
+                                        class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-100 text-sm outline-none focus:border-brand-600 font-semibold"
+                                    />
+                                </label>
+                                <label class="flex flex-col gap-1.5 text-xs text-slate-400">
+                                    Specifications / Lab parameters
+                                    <textarea 
+                                        value={noteContent}
+                                        onChange={(e) => setNoteContent(e.target.value)}
+                                        placeholder="Enter experimental results, CRISPR coordinates, etc..."
+                                        class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-100 text-sm outline-none focus:border-brand-600 h-40 resize-none font-mono"
+                                    />
+                                </label>
+                            </div>
+                            <button 
+                                onClick={onSave}
+                                class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold tracking-wide transition-all mt-2"
+                            >
+                                {editingId ? 'Save Edits' : 'Commit Notebook Log'}
+                            </button>
+                        </div>
+
+                        {/* List column */}
+                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-4">
+                            <h4 class="text-xs font-bold font-display uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2">Saved Telemetry Notes ({notes.length})</h4>
+                            {notes.length === 0 ? (
+                                <p class="text-xs text-slate-500 py-12 text-center">No notebook logs commited. Write above to save.</p>
+                            ) : (
+                                <div class="flex flex-col gap-4 overflow-y-auto max-h-[400px]">
+                                    {notes.map(note => (
+                                        <div key={note.id} class="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col gap-2 shadow-sm relative">
+                                            <div class="flex justify-between items-start">
+                                                <h5 class="text-sm font-bold text-white font-display">{note.title}</h5>
+                                                <div class="flex gap-2">
+                                                    <button onClick={() => onEdit(note)} class="text-xs text-brand-500 hover:text-brand-400 p-1">✏️</button>
+                                                    <button onClick={() => onDelete(note.id)} class="text-xs text-rose-500 hover:text-rose-400 p-1">🗑️</button>
+                                                </div>
+                                            </div>
+                                            <p class="text-xs text-slate-300 font-mono leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+
+                </div>
+            );
+        }
+
+        // Render React Application
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+</html>
